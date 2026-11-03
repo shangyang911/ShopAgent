@@ -2,6 +2,10 @@
 
 Single-store product admin built with Vue 3 + TypeScript and a modular FastAPI API.
 
+本地 `.env`、前端构建产物 `frontend/dist/`、`.idea/`、测试备份及私钥不提交到 Git。配置请参考前后端的 `.env.example`；`VITE_` 变量会进入浏览器代码，不能用于保存后端密钥。高德 JS API Key 应配置域名白名单，配套安全密钥仅保存在服务器代理中。
+
+演示客户使用脱敏手机号和标明虚构的地址，仅供本地展示，不适用于真实投递、快递面单申请或精确路线验收。仓库中的演示资料修改不会自动更新现有数据库。
+
 The shipping page now combines courier fulfilment with the existing AMap map and routes. See [courier phase-one workflow](docs/SHIPPING-phase1.md) for waybill registration, physical handover, inventory behavior, and historical backfill.
 
 Phase two adds a Kuaidi100 tracking adapter, cached delivery history, auditable logistics follow-ups, dashboard links and an agent logistics tool. Credentials are not yet configured; see [phase-two setup and behavior](docs/SHIPPING-phase2.md).

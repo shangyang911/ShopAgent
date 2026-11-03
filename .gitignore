@@ -1,1 +1,23 @@
 .local-test/
+
+# Local credentials; keep only sanitized configuration templates in Git.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build output can contain environment values embedded by Vite.
+/frontend/dist/
+
+# Personal IDE configuration and machine-specific paths.
+.idea/
+
+# Local databases, logs, and private certificates.
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.pem
+*.key
+*.p12
+*.pfx

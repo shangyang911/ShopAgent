@@ -55,7 +55,7 @@ def refresh():
             for offset, address in enumerate(customer_addresses):
                 values = address_values(profile)
                 if offset:
-                    values["detail"] = f"和平路 云创商务中心{offset + 2}层{offset + 201}室"
+                    values["detail"] = f"演示附加地址{offset:02d}（虚构，不可投递）"
                 for field, value in values.items():
                     setattr(address, field, value)
         db.flush()

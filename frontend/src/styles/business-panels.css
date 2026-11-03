@@ -1,0 +1,70 @@
+/* 售后和库存调整共用布局；样式只负责排列，业务状态仍在各功能组件中维护。 */
+.business-panel {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #dde2e7;
+  border-radius: 12px;
+  background: #fff;
+}
+.business-panel h2,
+.business-panel h3,
+.business-panel h4 {
+  margin: 0 0 10px;
+}
+.business-panel p,
+.business-panel li {
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.business-form {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  max-width: 760px;
+}
+.business-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+.business-form input,
+.business-form select,
+.business-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d5dce2;
+  border-radius: 6px;
+  padding: 9px;
+  background: #fff;
+  font: inherit;
+}
+/* 用 fieldset 外的 disabled 控制各字段，提交失败时保留原输入便于重试。 */
+.business-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.business-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.business-actions label {
+  flex: 1 1 160px;
+}
+.business-record {
+  padding: 16px 0;
+  border-bottom: 1px solid #e7ebee;
+}
+.business-record:last-child {
+  border-bottom: none;
+}
+@media (max-width: 600px) {
+  .business-panel {
+    padding: 12px;
+  }
+  .business-actions > .ops-button {
+    flex: 1 1 auto;
+  }
+}

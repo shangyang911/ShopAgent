@@ -1,0 +1,44 @@
+# Include this file from Nginx's http context. Replace the security-code
+# placeholder using a server-side secret store; never put it in frontend env files.
+map $http_origin $amap_cors_origin {
+    default "";
+    "~^http://(localhost|127\.0\.0\.1):5173$" $http_origin;
+}
+
+limit_req_zone $binary_remote_addr zone=amap_proxy:10m rate=10r/s;
+
+server {
+    listen 8080;
+    server_name 127.0.0.1 localhost;
+
+    # Optional AMap custom-style service proxy (required only when using it).
+    location /_AMapService/v4/map/styles {
+        add_header Access-Control-Allow-Origin $amap_cors_origin always;
+        add_header Vary "Origin" always;
+        limit_req zone=amap_proxy burst=20 nodelay;
+        set $args "$args&jscode=REPLACE_WITH_SERVER_SIDE_AMAP_SECURITY_CODE";
+        proxy_ssl_server_name on;
+        proxy_set_header Host webapi.amap.com;
+        proxy_pass https://webapi.amap.com/v4/map/styles;
+    }
+
+    location /_AMapService/ {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin $amap_cors_origin always;
+            add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "*" always;
+            return 204;
+        }
+
+        # Development origins only. In production, add the exact app origin to
+        # this allowlist or serve the proxy path from the same origin.
+        add_header Access-Control-Allow-Origin $amap_cors_origin always;
+        add_header Vary "Origin" always;
+        limit_req zone=amap_proxy burst=20 nodelay;
+
+        set $args "$args&jscode=REPLACE_WITH_SERVER_SIDE_AMAP_SECURITY_CODE";
+        proxy_ssl_server_name on;
+        proxy_set_header Host restapi.amap.com;
+        proxy_pass https://restapi.amap.com/;
+    }
+}

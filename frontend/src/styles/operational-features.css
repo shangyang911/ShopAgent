@@ -1,0 +1,302 @@
+/* 消息、批量商品和客户详情的布局样式，与原有页面样式分开维护。 */
+.rail-nav a {
+  position: relative;
+}
+.nav-notification-count {
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  min-width: 18px;
+  padding: 2px 4px;
+  border-radius: 12px;
+  background: #c94b53;
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+.notification-heading .section-actions {
+  flex-wrap: wrap;
+}
+.notification-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: -8px 0 22px;
+  font-size: 13px;
+  color: #71827d;
+}
+.notification-summary strong {
+  color: var(--ink);
+  font-size: 16px;
+  margin-left: 5px;
+}
+.notification-summary button {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid #dce9e4;
+  border-radius: 16px;
+  color: var(--teal-dark);
+  background: #f2f9f6;
+  font-size: 13px;
+}
+.notification-summary button:disabled {
+  cursor: default;
+}
+.notification-summary .notification-all-read {
+  color: var(--teal-dark);
+}
+.notification-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e2eae6;
+  border-radius: 12px;
+  background: #f8fbfa;
+}
+.notification-filter {
+  display: grid;
+  gap: 8px;
+  color: #647872;
+  font-size: 12px;
+  font-weight: 500;
+}
+.notification-select {
+  position: relative;
+  display: block;
+  min-width: 170px;
+}
+.notification-select select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 38px 10px 13px;
+  border: 1px solid #d6e2dc;
+  border-radius: 8px;
+  appearance: none;
+  background: #fff;
+  color: #304c43;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.notification-select select:hover:not(:disabled) {
+  border-color: #89b8aa;
+}
+.notification-select select:focus-visible {
+  border-color: var(--teal);
+  outline: 2px solid #c8e9df;
+  outline-offset: 2px;
+}
+.notification-select select:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.notification-select svg {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #7c9288;
+  pointer-events: none;
+}
+.notification-page-read {
+  min-height: 42px;
+  margin-left: auto;
+}
+.notification-scope-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 18px;
+  color: #71827d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.notification-item:not(.unread) .notification-state {
+  color: #7d8985;
+}
+.notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+}
+.notification-item.unread {
+  border-left: 3px solid var(--teal);
+}
+.notification-item h2 {
+  margin: 8px 0;
+  font-size: 16px;
+}
+.notification-item p {
+  margin: 6px 0;
+}
+.notification-state {
+  font-size: 12px;
+  color: var(--teal-dark);
+}
+.product-batch-panel {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fcfa;
+}
+.batch-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+}
+.batch-controls label,
+.product-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.batch-controls select {
+  border: 1px solid #dce6e3;
+  background: white;
+  padding: 8px;
+  border-radius: 6px;
+}
+.batch-preview {
+  padding-top: 12px;
+}
+.batch-preview ul {
+  list-style: none;
+  padding: 0;
+  max-height: 300px;
+  overflow: auto;
+}
+.batch-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.product-select {
+  font-size: 12px;
+  color: #58706c;
+  margin: 0 0 10px;
+}
+.customer-detail-panel {
+  margin-bottom: 30px;
+  min-width: 0;
+}
+.customer-layout .address-list {
+  min-width: 0;
+}
+.customer-followup .section-actions {
+  flex-wrap: wrap;
+}
+.customer-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.customer-summary div {
+  background: #f3f8f6;
+  padding: 14px;
+  border-radius: 8px;
+}
+.customer-summary small,
+.customer-summary strong {
+  display: block;
+}
+.customer-summary strong {
+  margin-top: 8px;
+  font-size: 19px;
+}
+.customer-followup {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.customer-followup label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.customer-followup input,
+.customer-followup textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dce6e3;
+  border-radius: 7px;
+  font: inherit;
+}
+.customer-common-products ul {
+  padding-left: 18px;
+  font-size: 13px;
+}
+.customer-common-products li {
+  margin: 7px 0;
+}
+.customer-orders-table {
+  overflow-x: auto;
+}
+.customer-orders-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.customer-orders-table th,
+.customer-orders-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .notification-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .notification-filters {
+    padding: 16px;
+    gap: 14px;
+  }
+  .notification-filter {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+  .notification-select {
+    min-width: 0;
+  }
+  .notification-page-read {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+  .customer-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .notification-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .customer-detail-panel .address-list-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .batch-preview li {
+    flex-direction: column;
+  }
+}

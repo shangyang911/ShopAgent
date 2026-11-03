@@ -1,0 +1,92 @@
+/* 导航与页面对应；短窗口独立滚动，长页面保持入口可见。 */
+.app-frame {
+  overflow: clip;
+}
+.rail {
+  position: sticky;
+  top: 30px;
+  align-self: flex-start;
+  height: calc(100dvh - 60px);
+  min-height: 0;
+}
+.rail .brand-mark {
+  flex-shrink: 0;
+}
+.rail .rail-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 12px 0;
+  gap: 5px;
+}
+.rail .rail-nav a {
+  position: relative;
+  flex-shrink: 0;
+  width: 66px;
+  min-height: 53px;
+  height: auto;
+  padding: 7px 3px;
+  gap: 4px;
+  align-content: center;
+}
+.rail .rail-label {
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.rail .rail-group-start {
+  margin-top: 10px;
+}
+.rail .rail-bottom {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 10px 0;
+}
+.rail .avatar {
+  margin-top: 0;
+}
+.rail .nav-notification-count {
+  top: 2px;
+  right: 5px;
+}
+@media (max-width: 1280px) {
+  .rail {
+    top: 20px;
+    height: calc(100dvh - 40px);
+  }
+}
+@media (max-width: 900px) {
+  .rail {
+    top: 0;
+    height: 100dvh;
+  }
+  .rail .rail-nav a {
+    width: 54px;
+  }
+}
+@media (max-width: 620px) {
+  .rail .rail-nav {
+    padding: 7px 0;
+    gap: 3px;
+  }
+  .rail .rail-nav a {
+    width: 46px;
+    min-height: 48px;
+    padding: 6px 2px;
+  }
+  .rail .rail-label {
+    font-size: 9px;
+  }
+  .rail .rail-bottom {
+    padding: 8px 0;
+  }
+}
+@media print {
+  .rail {
+    display: none;
+  }
+}

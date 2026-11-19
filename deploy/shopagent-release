@@ -1,0 +1,13 @@
+#!/usr/bin/python3
+"""Root-owned deployment entry with server-side repository configuration."""
+import os
+from pathlib import Path
+import re
+import sys
+if len(sys.argv) != 2 or not re.fullmatch(r'[a-f0-9]{40}', sys.argv[1]):
+    raise SystemExit('Expected exactly one full commit SHA')
+for line in Path('/opt/shopagent/secrets/release.env').read_text().splitlines():
+    key, separator, value = line.partition('=')
+    if separator and key in {'SHOPAGENT_REPOSITORY_URL', 'SHOPAGENT_REPOSITORY_KEY'}:
+        os.environ[key] = value
+os.execv('/usr/bin/python3', ['/usr/bin/python3', '/opt/shopagent/ops/release.py', 'run', '--revision', sys.argv[1]])

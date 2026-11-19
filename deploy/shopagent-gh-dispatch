@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Restrict the Actions SSH identity to one immutable deployment request."""
+import os
+import re
+import subprocess
+command = os.environ.get('SSH_ORIGINAL_COMMAND', '')
+match = re.fullmatch(r'/usr/local/sbin/shopagent-release ([a-f0-9]{40})', command)
+if match is None:
+    raise SystemExit('Only an exact commit deployment is permitted')
+raise SystemExit(subprocess.call(['sudo', '-n', '/usr/local/sbin/shopagent-release', match[1]]))

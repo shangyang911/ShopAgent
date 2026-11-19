@@ -4,7 +4,7 @@ Public URL: https://123.57.2.244/ (voice: `/agent`). Production secrets are sepa
 
 ## CI/CD
 
-The Gitee Go workflow, agent, CI sudo entry and deployment key have been removed at the owner's request. No automatic deployment entry is enabled by this configuration. GitHub setup is managed by the owner separately. The remaining release utilities are manual operator tools.
+GitHub Actions deploys each push to master and supports manual workflow dispatch on master. Concurrent production deployments are serialized. The SSH_PRIVATE_KEY repository secret authenticates the restricted shopagent-deploy account, which accepts only a full commit SHA through the root-owned release entry. The server fetches GitHub using a repository-only read key. Gitee automation remains removed.
 
 The root-owned release tool fetches that exact master revision with a repository-only read key, serializes executions, builds commit-tagged images, runs frontend tests/architecture/type checks/build and backend tests with a disposable MySQL. It does not mount production secrets or volumes into CI test containers. Existing Python dependencies are locked from the validated Linux runtime; Docker base images are pinned by digest.
 

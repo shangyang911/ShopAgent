@@ -1,0 +1,19 @@
+[Unit]
+Description=ShopAgent Gitee Go agent (dedicated deploy identity)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shopagent-ci
+Group=shopagent-ci
+WorkingDirectory=/home/shopagent-ci
+Environment=HOME=/home/shopagent-ci
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/shopagent/ops/gitee_runner.py
+Restart=always
+RestartSec=10s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target

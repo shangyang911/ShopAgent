@@ -1,0 +1,35 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚀 连接服务器成功，准备部署..."
+            
+            # ⚠️ 请务必确认你服务器上的代码路径，如果不是 /opt/shopagent 请修改
+            cd /opt/shopagent 
+            
+            echo "📦 拉取最新代码..."
+            git fetch --all
+            git reset --hard origin/master
+            git pull origin master || true 
+            
+            echo "⚙️ 执行部署脚本..."
+            # 如果之前 Codex 给你写了部署脚本，在这里调用它，比如：
+            # bash deploy.sh
+            
+            echo "✅ 部署完成！"

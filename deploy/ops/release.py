@@ -21,7 +21,7 @@ import uuid
 
 
 BASE_URL = 'https://123.57.2.244'
-REPOSITORY = 'git@gitee.com:up-above/shop-agent.git'
+REPOSITORY = os.environ.get('SHOPAGENT_REPOSITORY_URL', '')
 SOURCE_MARKER = '.shopagent-source-revision'
 
 
@@ -143,12 +143,16 @@ class ReleaseManager:
 
     def git_environment(self):
         environment = os.environ.copy()
-        environment['GIT_SSH_COMMAND'] = shlex.join([
-            'ssh', '-i', str(self.root / 'secrets' / 'gitee-readonly'),
-            '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes'])
+        arguments = ['ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes']
+        key = environment.get('SHOPAGENT_REPOSITORY_KEY')
+        if key:
+            arguments.extend(['-i', key, '-o', 'IdentitiesOnly=yes'])
+        environment['GIT_SSH_COMMAND'] = shlex.join(arguments)
         return environment
 
     def fetch_master(self):
+        if not REPOSITORY:
+            raise RuntimeError('Repository deployment is not configured')
         repository = self.root / 'repository.git'
         if not repository.exists():
             self.run(['git', 'init', '--bare', str(repository)])

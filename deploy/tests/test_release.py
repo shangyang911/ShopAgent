@@ -17,6 +17,7 @@ def load_release():
 class ReleaseSafetyTests(unittest.TestCase):
     def setUp(self):
         self.module = load_release()
+        self.module.REPOSITORY = 'ssh://example.invalid/shopagent.git'
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -120,7 +121,7 @@ class ReleaseSafetyTests(unittest.TestCase):
         def run(command, **kwargs):
             result = original_run(command, **kwargs)
             if 'fetch' in command:
-                self.assertIn('gitee-readonly', kwargs['env']['GIT_SSH_COMMAND'])
+                self.assertIn('BatchMode=yes', kwargs['env']['GIT_SSH_COMMAND'])
                 self.assertIn('StrictHostKeyChecking=yes', kwargs['env']['GIT_SSH_COMMAND'])
                 raise OSError('fetch failed')
             return result

@@ -4,7 +4,7 @@ Public URL: https://123.57.2.244/ (voice: `/agent`). Production secrets are sepa
 
 ## CI/CD
 
-`.workflow/MasterPipeline.yml` triggers on pushes/merges to `master`. Gitee Go runs the task on host group `shopagent-production`; the agent runs as `shopagent-ci` and may sudo only `/usr/local/sbin/shopagent-release <full-SHA>`.
+The Gitee Go workflow, agent, CI sudo entry and deployment key have been removed at the owner's request. No automatic deployment entry is enabled by this configuration. GitHub setup is managed by the owner separately. The remaining release utilities are manual operator tools.
 
 The root-owned release tool fetches that exact master revision with a repository-only read key, serializes executions, builds commit-tagged images, runs frontend tests/architecture/type checks/build and backend tests with a disposable MySQL. It does not mount production secrets or volumes into CI test containers. Existing Python dependencies are locked from the validated Linux runtime; Docker base images are pinned by digest.
 

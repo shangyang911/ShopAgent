@@ -16,7 +16,13 @@ stages:
       - step: shell@agent
         name: release-shopagent
         displayName: 发布指定提交，失败自动恢复
-        hostGroupID: shopagent-production
+        schedulerType: DISTRIBUTED
+        scriptType: SH
+        gitClone: "true"
+        hostGroupID:
+          ID: shopagent-production
+          hostID:
+            - 3a727763-e214-4592-9aa3-54a025eb00d7
         script: |
           set -eu
           sudo -n /usr/local/sbin/shopagent-release "${GITEE_COMMIT}"

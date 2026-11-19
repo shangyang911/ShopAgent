@@ -11,4 +11,4 @@ if len(configurations) != 1:
 settings = json.loads(configurations[0].read_text())
 binary = str(home / 'gitee-go-runner')
 os.execv(binary, [binary, 'start', '-t', settings['uuid'], '-u', settings['server_url'],
-                 '-l', 'info', '-g', '-c', '1'])
+                 '-l', 'info', '-g', '-f', '-c', '1'])

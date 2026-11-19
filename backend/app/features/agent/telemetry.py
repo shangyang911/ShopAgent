@@ -1,7 +1,7 @@
 # [AI 可观测性] 按请求记录调用链；使用独立事务，记录失败不影响原业务结果。
 """Request-scoped telemetry. Recording failures never change business outcomes."""
 from contextvars import ContextVar
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -11,7 +11,7 @@ import re
 import time
 import asyncio
 from uuid import uuid4
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text, select
+from sqlalchemy import DateTime, Float, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 from app.features.operations.models import utcnow

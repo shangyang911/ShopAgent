@@ -1,0 +1,11 @@
+.git
+.local-test
+.superpowers
+**/.venv
+**/node_modules
+**/__pycache__
+**/.env
+**/.env.*
+**/uploads
+**/*.log
+frontend/dist

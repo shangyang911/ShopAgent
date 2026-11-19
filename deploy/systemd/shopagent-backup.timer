@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily ShopAgent local backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 Asia/Shanghai
+Persistent=true
+Unit=shopagent-backup.service
+
+[Install]
+WantedBy=timers.target

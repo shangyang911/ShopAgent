@@ -1,6 +1,6 @@
-"""Product detail, gallery, variant maintenance and audited stock allocation."""
+"""维护商品详情、图片与 SKU；库存分配通过审计流水完成，不直接改总库存。"""
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.features.operations.common import wire
@@ -9,6 +9,7 @@ from app.features.products.sku_inventory import ensure_default_sku, resolve_sku,
 
 
 def lock_product(db, product_id):
+    """先锁商品再处理 SKU，刷新会话中可能由页面查询留下的旧对象。"""
     product = db.scalar(select(ProductModel).where(ProductModel.id == product_id)
                         .with_for_update().execution_options(populate_existing=True))
     if product is None:
@@ -17,6 +18,7 @@ def lock_product(db, product_id):
 
 
 def content_for_write(db, product, revision):
+    """商品锁串行化写入，版本号防止旧页面覆盖其他用户已保存的详情。"""
     content = db.scalar(select(ProductContent).where(ProductContent.product_id == product.id)
                         .with_for_update().execution_options(populate_existing=True))
     if content is None:
@@ -75,8 +77,13 @@ def save_detail(db, product_id, payload):
 
 
 def update_catalog_price(db, product):
+    """同步在售规格的最低展示价；订单成交价由所选 SKU 另行冻结。"""
     db.flush()
-    price = db.scalar(select(func.min(ProductSKU.price)).where(ProductSKU.product_id == product.id, ProductSKU.active.is_(True)))
+    # MySQL 可重复读下，普通 MIN 查询仍可能使用鉴权时建立的旧快照。
+    # 持有商品锁时以当前读取得规格价格，再汇总，避免并发调价后写回旧最低价。
+    prices = db.scalars(select(ProductSKU.price).where(
+        ProductSKU.product_id == product.id, ProductSKU.active.is_(True)).order_by(ProductSKU.id).with_for_update())
+    price = min(prices, default=None)
     if price is not None:
         product.price = price
 
@@ -106,6 +113,7 @@ def save_sku(db, product_id, payload, sku_id=None):
 
 
 def transfer_stock(db, product_id, payload, actor):
+    """同一事务记录转出与转入，只移动可售库存，商品总量和订单预留保持不变。"""
     from app.features.operations.inventory import evaluate_alert, move
     from app.features.operations.models import Movement
     product = lock_product(db, product_id)

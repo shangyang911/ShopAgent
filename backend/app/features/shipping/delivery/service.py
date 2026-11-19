@@ -1,4 +1,5 @@
 """配送业务：订单地址解析、起点配置和高德驾车路线查询。"""
+import asyncio
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -14,6 +15,7 @@ from app.features.shipping.delivery.schemas import DeliveryOrder, DeliveryRoute,
 # [配送地图 / 默认视野] 门店坐标未配置时保持全国视野，仅用于初始化地图。
 DEFAULT_MAP_SETTINGS = ShippingMapSettings(center=(104.1954, 35.8617), zoom=5)
 ACTIVE_DELIVERY_STATUSES = (OrderStatus.PAID_PENDING_SHIPMENT, OrderStatus.IN_DELIVERY)
+DELIVERY_LIST_GEOCODE_BUDGET_SECONDS = 2.0
 
 
 class AmapServiceError(Exception):
@@ -64,12 +66,14 @@ class ShippingService:
         origin = _origin()
         return ShippingMapSettings(center=origin or DEFAULT_MAP_SETTINGS.center, zoom=12 if origin else DEFAULT_MAP_SETTINGS.zoom)
 
-    def list_delivery_orders(self) -> list[OrderModel]:
-        """返回待发货与配送中的订单，便于开始配送和继续配送。"""
+    def list_delivery_orders(self, page: int = 1, page_size: int = 100) -> list[OrderModel]:
+        """分页返回待发货与配送中的订单，便于开始配送和继续配送。"""
         statement = (
             select(OrderModel)
             .where(OrderModel.status.in_(ACTIVE_DELIVERY_STATUSES))
             .order_by(OrderModel.created_at.asc(), OrderModel.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
         return list(self.db.scalars(statement).all())
 
@@ -128,15 +132,23 @@ class ShippingService:
         self.db.commit()
         return longitude, latitude
 
-    async def list_delivery_orders_with_coordinates(self) -> list[DeliveryOrder]:
-        """逐单尝试解析地址；单个地址失败只标记该订单，不影响整页队列。"""
-        rows = self.list_delivery_orders()
+    async def list_delivery_orders_with_coordinates(self, page: int = 1, page_size: int = 100) -> list[DeliveryOrder]:
+        """整页共用解析时限；超时保留地址快照，单笔路线接口仍可重试解析。"""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + DELIVERY_LIST_GEOCODE_BUDGET_SECONDS
+        rows = self.list_delivery_orders(page=page, page_size=page_size)
         result: list[DeliveryOrder] = []
         for order in rows:
             geocode_error = None
             if order.longitude is None or order.latitude is None:
                 try:
-                    await self.resolve_order_coordinates(order)
+                    remaining = deadline - loop.time()
+                    if remaining <= 0:
+                        raise TimeoutError
+                    # 顺序解析，避免多个任务并发使用同一个 SQLAlchemy Session。
+                    await asyncio.wait_for(self.resolve_order_coordinates(order), timeout=remaining)
+                except TimeoutError:
+                    geocode_error = "本页地址解析超时，请通过单笔订单路线重试。"
                 except AmapServiceError as error:
                     geocode_error = str(error)
             delivery = DeliveryOrder.model_validate(order, from_attributes=True)

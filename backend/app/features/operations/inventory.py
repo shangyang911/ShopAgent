@@ -9,6 +9,7 @@ from .common import actor_fields, utc_input, wire
 from .models import InventoryRule, Movement, Reservation, Setting, StockAlert, utcnow
 
 def default_threshold(db, current=False):
+    """页面可读查询快照；库存写入评估告警时使用最新设置，调用方先持有商品锁。"""
     statement = select(Setting).where(Setting.key == "default_stock_threshold")
     if current:
         statement = statement.with_for_update(read=True).execution_options(populate_existing=True)
@@ -70,6 +71,7 @@ def opening(db, product, actor=None, reserved=0):
 
 def move(db, product, *, kind, available, reserved, reference_type, reference_id, reference_number, key, actor=None, reason=None, now=None, sku_id=None, check_alerts=True):
     """同时修改可用库存、追加流水和评估告警；由上层业务统一 commit。"""
+    # 商品库存是各 SKU 可售量的汇总；两层余额与流水必须同事务更新，不能各自提交。
     # 在库 = 可用 + 预留。预留时一减一增，在库不变；发货时扣预留，在库才减少。
     if product.stock + available < 0:
         raise HTTPException(409, f"商品 {product.id} 可售库存不足")
@@ -134,6 +136,7 @@ def paged(db, statement, page, page_size):
 
 
 def movement_query(product_id=None, movement_type=None, reference_number="", actor="", start_at=None, end_at=None, order_id=None):
+    """列表与导出共用筛选；时间范围采用左闭右开 [start, end)，避免跨日重复。"""
     start, end = utc_input(start_at), utc_input(end_at)
     if start and end and start >= end:
         raise HTTPException(422, "流水开始时间必须早于结束时间")

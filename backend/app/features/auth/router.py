@@ -93,11 +93,7 @@ def logout(request: Request, response: Response, db: Annotated[Session, Depends(
 
 @router.get("/me", response_model=UserResponse)
 def current_user(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[UserModel, Depends(require_current_user)],
 ) -> UserModel:
     """应用入口 / 检查登录态：返回当前账号，供页面决定显示后台或登录页。"""
-    user = current_user_from_request(request, db)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in")
     return user

@@ -2,6 +2,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum as SqlEnum, Float, ForeignKey, Index, Integer, Numeric, String, Text, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
@@ -10,6 +11,9 @@ from app.db.base import Base
 from app.features.operations.models import OrderFacts, PrintDocument  # OrderFacts 注册字符串关系所需模型。
 from app.features.shipping.fulfillment.models import ShipmentModel
 from app.features.aftersales.models import AfterSale, RefundRecord
+
+if TYPE_CHECKING:
+    from app.features.customers.models import CustomerAddressModel, CustomerModel
 
 
 class OrderStatus(str, Enum):

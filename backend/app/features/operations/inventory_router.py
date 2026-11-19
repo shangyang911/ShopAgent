@@ -1,3 +1,4 @@
+"""库存查询、告警规则及入库单接口；草稿可编辑，确认后通过流水一次入账。"""
 from datetime import datetime
 from typing import Literal
 from uuid import uuid4
@@ -54,7 +55,7 @@ def locked_inbound(db, receipt_id):
 
 
 def set_lines(db, row, payload):
-    """草稿可重写明细；先合并同商品数量并完整校验，任一商品无效则整单不保存。"""
+    """草稿可重写明细；先按商品和 SKU 合并数量，任一规格无效则整单不保存。"""
     raw_quantities = {}
     for item in payload.items:
         key = (item.product_id, item.sku_id)
@@ -95,7 +96,7 @@ def settings(db: Session = Depends(get_db)):
 
 @router.put("/settings")
 def update_settings(payload: DefaultRuleUpdate, db: Session = Depends(get_db), actor: UserModel = Depends(require_current_user)):
-    # All mutations lock products before rules/settings. Keep the global edit in that order too.
+    # 统一按商品 ID → 告警规则/全局设置的顺序加锁，避免与下单或入库形成反向等待。
     list(db.scalars(select(ProductModel).order_by(ProductModel.id).with_for_update()))
     row = db.scalar(select(Setting).where(Setting.key == "default_stock_threshold").with_for_update())
     before = default_threshold(db)
@@ -212,6 +213,7 @@ def get_inbound(receipt_id: int, db: Session = Depends(get_db)):
 
 @router.post("/inbounds", status_code=201)
 def create_inbound(payload: InboundPayload, db: Session = Depends(get_db), actor: UserModel = Depends(require_current_user)):
+    """提交键对应首次创建内容，网络重试返回原单；实际库存到确认时才增加。"""
     payload_hash = digest({key: value for key, value in sku_payload(payload).items() if key != "idempotency_key"})
     previous = db.scalar(select(Inbound).where(Inbound.creation_key == payload.idempotency_key))
     if previous:
@@ -256,6 +258,7 @@ def void_inbound(receipt_id: int, db: Session = Depends(get_db)):
 
 @router.post("/inbounds/{receipt_id}/confirm")
 def confirm_inbound(receipt_id: int, db: Session = Depends(get_db), actor: UserModel = Depends(require_current_user)):
+    """锁住单据防止重复确认；先校验全部 SKU，再将库存、流水和单据状态一起提交。"""
     row = locked_inbound(db, receipt_id)
     if row.status == "confirmed":
         return inbound_detail(db, row)

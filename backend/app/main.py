@@ -5,9 +5,12 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from app.api.router import api_router
-from app.db.session import initialize_database
+from app.db.session import engine, initialize_database
 from app.features.products.storage import PRODUCT_IMAGE_DIR
 
 UPLOAD_DIR = PRODUCT_IMAGE_DIR.parent
@@ -78,4 +81,15 @@ app.include_router(api_router)
 def health_check() -> dict[str, str]:
     """部署检查入口：确认 FastAPI 进程可以响应 HTTP 请求。"""
     return {"status": "ok", "service": "e-commerce-api"}
+
+
+@app.get("/api/ready", tags=["health"])
+def readiness_check() -> JSONResponse:
+    """确认现有数据库连接和只读查询正常，不公开数据库错误详情。"""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+    return JSONResponse(content={"status": "ready"})
 

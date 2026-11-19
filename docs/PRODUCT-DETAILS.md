@@ -26,7 +26,7 @@
 - 创建订单按 SKU 价格冻结快照并预留；取消释放原 SKU；实物交接扣原 SKU 预留；退货验收仅合格件恢复原 SKU。更改 SKU 价格或名称不会覆盖订单快照。
 - 入库草稿和库存调整冻结所选 SKU；确认时复核库存版本。实际库存变更按商品锁、SKU 锁的顺序串行化，防止超卖。
 - 原有商品对应一个默认 SKU，继承原库存和有效预留，不复制给新规格。旧图片迁入轮播，旧订单、流水和入库行只补充 SKU 关联，不改原金额、数量或时间。
-- 新增 `product_skus`、`product_images`、`product_content` 三张业务表，原表只新增可空 SKU 字段。启动执行幂等升级；已移除的物流待办表不会重建。
+- 新增 `product_skus`、`product_images`、`product_content` 三张业务表，原表只新增可空 SKU 字段。启动检查表结构；历史 SKU、图片及快照补齐与 `operation_settings` 的 `migration:product_skus:v1` 标记同时提交，成功后不再重复扫描。正常新增商品自行初始化 SKU 和图片；已移除的物流待办表不会重建。
 - 数据库变更前备份位于 `.local-test/database-backups/before-product-skus-20261030T113124Z.sql`。
 
 ## 验证

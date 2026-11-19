@@ -54,6 +54,22 @@ class CoreOperationsTests(OrderFixtures, unittest.TestCase):
         with Session(self.engine) as db:
             return db.scalar(select(func.count()).select_from(model))
 
+    def test_current_user_endpoint_uses_the_same_session_authentication_as_business_routes(self):
+        from app.features.auth.router import COOKIE_NAME
+        from app.features.auth.service import AuthService
+        app.dependency_overrides.pop(require_current_user)
+        self.assertEqual(self.client.get('/api/auth/me').status_code, 401)
+        with Session(self.engine) as db:
+            token = AuthService(db)._create_session(db.get(UserModel, self.actor.id))
+            db.commit()
+        self.client.cookies.set(COOKIE_NAME, token)
+        response = self.client.get('/api/auth/me')
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['id'], self.actor.id)
+        self.assertEqual(response.json()['username'], self.actor.username)
+        self.assertEqual(self.client.post('/api/auth/logout').status_code, 204)
+        self.assertEqual(self.client.get('/api/auth/me').status_code, 401)
+
     def pay(self, order_id):
         return self.client.patch(f"/api/orders/{order_id}/status", json={"status": "paid_pending_shipment", "idempotency_key": "payment-request-123"})
 

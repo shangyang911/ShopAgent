@@ -24,6 +24,7 @@ def detail(db, row):
 
 
 def create_adjustment(db, payload, actor):
+    """冻结 SKU 可售、预留和流水版本作为草稿依据；创建草稿不改变库存。"""
     hashed = digest(sku_payload(payload))
     previous = db.scalar(select(StockAdjustment).where(StockAdjustment.creation_key == payload.idempotency_key))
     if previous:
@@ -73,6 +74,7 @@ def create_adjustment(db, payload, actor):
 
 
 def confirm_adjustment(db, adjustment_id, actor):
+    """确认时重新核对全部草稿快照，只要一项过期就拒绝整单，避免覆盖期间的销售。"""
     row = db.scalar(select(StockAdjustment).where(StockAdjustment.id == adjustment_id).with_for_update().execution_options(populate_existing=True))
     if not row:
         raise HTTPException(404, "调整单不存在")
@@ -104,6 +106,7 @@ def confirm_adjustment(db, adjustment_id, actor):
 
 
 def cancel_adjustment(db, adjustment_id):
+    """作废草稿不会生成反向流水；已确认调整必须通过新的调整单更正。"""
     row = db.scalar(select(StockAdjustment).where(StockAdjustment.id == adjustment_id).with_for_update().execution_options(populate_existing=True))
     if not row:
         raise HTTPException(404, "调整单不存在")

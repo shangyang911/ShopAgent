@@ -74,7 +74,7 @@ py -m venv .venv
 
 ### 快递100物流查询
 
-物流异常待办功能已移除。清理旧环境残留的三张待办表可运行 `scripts/cleanup_retired_tables.py --database dianshang` 先查看检查结果，再加 `--apply` 备份并清理。脚本只处理明确停用的表，备份保存于 `.local-test/database-backups/`，保留表的外键引用会阻止清理。
+物流异常待办功能已移除，旧表清理方式见下文的“遗留表清理”。
 
 - `KD100_CUSTOMER`、`KD100_KEY`：物流查询账号和授权。
 - `LOGISTICS_AUTO_SYNC`：是否启用后台查询，默认 `false`。
@@ -175,6 +175,16 @@ pending_payment → paid_pending_shipment → in_delivery → completed
 客户关联多个地址和订单，订单关联多个商品行及包裹。订单保留收件地址、商品名称和价格快照；地址簿或商品记录后续变化不改写原始订单快照。
 
 服务启动时创建缺失表、兼容旧订单状态，并执行幂等的商品种子和运营期初初始化：空商品表初始化 12 条基础样本，首次接入补充 100 条中文商品；不覆盖已有商品，不重复扣减历史库存，不猜测未知的付款或交接时间。新增物流及包裹表的规则分别见各期文档。
+
+历史 SKU、图片及快照补齐成功后，在 `operation_settings` 写入 `migration:product_skus:v1` 完成标记；后续启动只检查标记，不再逐商品扫描或更新历史行。标记与补齐数据在同一事务提交，失败可回滚重试；MySQL 启动并发由数据库锁串行化。正常创建商品仍会立即初始化 SKU 和图片。
+
+### 遗留表清理
+
+当前版本注册 48 张 ORM 表。`scripts/cleanup_retired_tables.py` 仅处理显式白名单：旧物流待办三表，以及当前代码不再引用的任务流程六表、账号权限三表、地址及异常处理三表、售后 Agent 任务、经营问题报告、开单预览和数据来源表。完整表名见脚本的 `RETIRED`，不会自动删除其他未知表。
+
+从 `backend/` 目录执行 `.venv/Scripts/python.exe scripts/cleanup_retired_tables.py --database dianshang` 只读检查；加 `--backup-only` 只生成备份；加 `--apply` 备份后删除。两个写入选项互斥。执行前需确认目标库没有其他版本或服务使用这些表。
+
+备份包含建表语句和全部数据，保存于项目根目录的 `.local-test/database-backups/`，不提交 Git。脚本校验数据库名称、ORM 注册、外键及数据库对象引用，并核对保留表行数；不会关闭业务库外键检查。2026-11-14 本地 `dianshang` 已清理 16 张遗留表，7,429 条记录的备份已在隔离库恢复验证，保留的 48 张表内容校验一致。
 
 ## 目录结构与开发约定
 

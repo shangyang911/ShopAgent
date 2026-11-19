@@ -1,8 +1,12 @@
 """SKU balances and product totals share the caller's product lock and transaction."""
+from hashlib import sha256
+
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 
 from .models import ProductSKU
+
+SKU_BACKFILL_KEY = 'migration:product_skus:v1'
 
 
 def sku_payload(payload):
@@ -64,10 +68,33 @@ def sku_label(row):
 
 
 def initialize_product_skus(db):
+    """Run historical backfill once; normal product creation initializes its own SKU."""
+    from app.features.operations.models import Setting
+    if db.get(Setting, SKU_BACKFILL_KEY):
+        return
+    bind = db.get_bind()
+    if bind.dialect.name != 'mysql':
+        return _backfill_product_skus(db)
+    # A separate connection retains the advisory lock across the backfill commit.
+    with bind.connect() as connection:
+        # MySQL limits advisory lock names to 64 characters, including long database names.
+        key = 'sku-backfill-v1:' + sha256(bind.url.database.encode()).hexdigest()[:32]
+        if connection.execute(text('SELECT GET_LOCK(:key, 30)'), {'key': key}).scalar_one() != 1:
+            raise RuntimeError('商品 SKU 数据补齐锁获取失败')
+        try:
+            _backfill_product_skus(db)
+        finally:
+            connection.execute(text('SELECT RELEASE_LOCK(:key)'), {'key': key})
+
+
+def _backfill_product_skus(db):
     from .models import ProductModel, ProductImage
     from app.features.orders.models import OrderItemModel
-    from app.features.operations.models import Movement, InboundLine
+    from app.features.operations.models import Movement, InboundLine, Setting
     from app.features.inventory.models import StockAdjustmentLine
+    # Locking reads see a marker committed by another starter while we waited.
+    if db.get(Setting, SKU_BACKFILL_KEY, with_for_update=True, populate_existing=True):
+        return
     for product in db.scalars(select(ProductModel).order_by(ProductModel.id).with_for_update()):
         if not db.scalar(select(ProductImage.id).where(ProductImage.product_id == product.id).limit(1)):
             db.add(ProductImage(product_id=product.id, url=product.image_url, alt=product.name, color=product.color, position=0, role='gallery'))
@@ -81,4 +108,5 @@ def initialize_product_skus(db):
                    .values(sku_id=default.id, sku_code_snapshot=default.code))
         for model in (InboundLine, StockAdjustmentLine):
             db.execute(update(model).where(model.product_id == product.id, model.sku_id.is_(None)).values(sku_id=default.id))
+    db.add(Setting(key=SKU_BACKFILL_KEY, value='completed'))
     db.commit()

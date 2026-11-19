@@ -89,6 +89,8 @@ class OrderListResponse(BaseModel):
     status_counts: dict[str, int] = Field(default_factory=dict)
 
 
+# 此表仅描述履约状态允许的方向，不代表退款已实际完成。
+# refunded 保留给历史兼容；新退款由售后凭据登记，发货由工作台交接接口触发。
 ORDER_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.PENDING_PAYMENT: {OrderStatus.PAID_PENDING_SHIPMENT, OrderStatus.CANCELLED},
     OrderStatus.PAID_PENDING_SHIPMENT: {OrderStatus.IN_DELIVERY, OrderStatus.CANCELLED, OrderStatus.REFUNDED},

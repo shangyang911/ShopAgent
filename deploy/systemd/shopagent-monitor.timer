@@ -1,0 +1,10 @@
+[Unit]
+Description=Check ShopAgent health every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=shopagent-monitor.service
+
+[Install]
+WantedBy=timers.target

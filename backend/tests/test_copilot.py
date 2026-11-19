@@ -1,6 +1,7 @@
 """Isolated business acceptance for deterministic recommendations and confirmed draft creation."""
 import unittest
-from datetime import timedelta
+from datetime import datetime, timedelta
+from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -111,6 +112,18 @@ class CopilotTests(unittest.TestCase):
         self.assertEqual(len(report['items']), 1)
         self.assertTrue(report['items'][0]['overdue'])
         self.assertIn('尚未登记主运单', report['items'][0]['reasons'])
+
+    def test_shipping_overdue_uses_exact_elapsed_time_before_display_rounding(self):
+        now = datetime(2026, 11, 14, 12)
+        for elapsed, overdue in ((timedelta(hours=23, minutes=58), False),
+                                 (timedelta(hours=24), True), (None, False)):
+            with self.subTest(elapsed=elapsed), self.fixture.factory() as db:
+                db.get(OrderFacts, 2).paid_at = now - elapsed if elapsed is not None else None
+                db.commit()
+                with patch('app.features.inventory.copilot.utcnow', return_value=now):
+                    row = shipping_analysis(db)['items'][0]
+                self.assertEqual(row['overdue'], overdue)
+                self.assertEqual(row['waiting_hours'], 24.0 if elapsed is not None else None)
 
     def test_bounds_and_authentication(self):
         self.assertEqual(self.client.get('/api/copilot/replenishment?coverage_days=0').status_code, 422)

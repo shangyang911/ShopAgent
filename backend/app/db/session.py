@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import DATABASE_URL
-from app.db.base import Base
 from app.features.auth.models import AuthSessionModel, UserModel  # noqa: F401 - register auth tables
 from app.features.customers.models import CustomerAddressModel, CustomerModel  # noqa: F401 - register customer tables
 from app.features.orders.models import OrderItemModel, OrderModel  # noqa: F401 - register order tables

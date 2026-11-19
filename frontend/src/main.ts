@@ -9,6 +9,9 @@ import './styles/navigation.css'
 import App from './App.vue'
 import { getCurrentLocale } from './shared/i18n'
 import { loadAmapApi } from './features/shipping/config/loadAmapApi'
+import { installRandomUUID } from './shared/randomUUID'
+
+installRandomUUID()
 
 // 保留高德能力：直达发货页时提前下载 SDK；地图加载与发货流程各自独立。
 if (window.location.pathname === '/shipping') void loadAmapApi().catch(() => {})

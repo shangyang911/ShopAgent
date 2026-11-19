@@ -32,6 +32,7 @@ const resolution = reactive({
 let labelKey = crypto.randomUUID()
 let labelHash = ''
 let disposed = false
+let loadVersion = 0
 const pending = computed(() =>
   data.value?.label_tasks.some((t) => t.status === 'requesting' || t.status === 'unknown'),
 )
@@ -58,9 +59,13 @@ const labelNames = {
 }
 
 async function load() {
+  if (disposed) return
+  const version = ++loadVersion
+  error.value = ''
   try {
     const result = await fetchPackages(props.order.id)
-    if (disposed) return
+    // 重叠刷新只接收最后一次响应，防止旧包裹版本覆写新结果和正在填写的运费。
+    if (disposed || version !== loadVersion) return
     data.value = result
     draft.package_no = nextNo.value
     for (const row of data.value.items)
@@ -69,18 +74,22 @@ async function load() {
         source: row.freight?.source ?? '',
       }
   } catch (reason) {
+    if (disposed || version !== loadVersion) return
     error.value = reason instanceof Error ? reason.message : '包裹加载失败'
   }
 }
 async function run(action: () => Promise<unknown>, changed = false) {
-  if (busy.value) return
+  if (busy.value || disposed) return
   busy.value = true
+  // 写入前的读取结果已经失效，保存完成后再重新获取最新包裹快照。
+  loadVersion++
   error.value = notice.value = ''
   try {
     await action()
     await load()
     if (changed && !disposed) emit('changed')
   } catch (reason) {
+    if (disposed) return
     error.value = reason instanceof Error ? reason.message : '操作失败，请核对后重试'
   } finally {
     busy.value = false
@@ -114,6 +123,7 @@ async function takeLabel() {
     expected_revision: data.value.revision,
   }
   const hash = JSON.stringify({ no, ...body })
+  // 网络中断无法确认是否已取号，同一内容重试沿用提交键，避免重复消耗面单额度。
   if (hash !== labelHash) {
     labelHash = hash
     labelKey = crypto.randomUUID()

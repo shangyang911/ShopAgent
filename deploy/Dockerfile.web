@@ -1,0 +1,16 @@
+FROM node:24.12.0-bookworm-slim@sha256:7326fb2dbdce998edd72140946851be64ef4a643e8715e138ca467e8e9d92c99 AS build
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --registry=https://registry.npmmirror.com
+COPY frontend/ ./
+# Browser JS key is public; the private security code remains in Nginx only.
+ARG VITE_AMAP_KEY
+ARG VITE_AMAP_SERVICE_HOST=https://123.57.2.244/_AMapService
+ENV VITE_API_BASE_URL=/api
+RUN test -n "$VITE_AMAP_KEY" && npm test && npm run check:architecture && npm run build
+
+FROM nginx:stable-alpine@sha256:74694f2de64c44787a81f0554aa45b281e468c0c58b8665fafceda624d31e556 AS runtime
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+COPY --from=build /build/dist/ /usr/share/nginx/html/
+EXPOSE 80

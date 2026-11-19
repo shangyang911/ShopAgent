@@ -81,6 +81,22 @@ class PlatformOptimizationTests(OrderFixtures, unittest.IsolatedAsyncioTestCase)
         response = self.client.post(f"/api/orders/{oid}/aftersales", json={"kind": "refund", "requested_amount": "16.00", "reason": "重复多退", "idempotency_key": str(uuid4())})
         self.assertEqual(response.status_code, 409)
 
+    def test_paid_cancellation_releases_stock_and_refund_is_registered_separately(self):
+        oid, pid = self.paid_order()
+        cancelled = self.client.patch(f'/api/orders/{oid}/status', json={'status': 'cancelled', 'reason': '客户取消，退款另行核实'})
+        self.assertEqual(cancelled.status_code, 200, cancelled.text)
+        self.assertEqual(self.stock(pid), (10, 0, 10))
+        snapshot = self.client.get(f'/api/orders/{oid}/aftersales').json()
+        self.assertEqual(Decimal(snapshot['confirmed_paid']), Decimal('20.00'))
+        self.assertEqual(Decimal(snapshot['refunded_amount']), Decimal('0.00'))
+        self.assertEqual(Decimal(snapshot['refundable_amount']), Decimal('20.00'))
+        case = self.case(oid)
+        response = self.refund(oid, case)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['status'], 'closed')
+        self.assertEqual(self.stock(pid), (10, 0, 10))  # 另行退款不能再次释放已取消的预留。
+        self.assertEqual(self.client.get(f'/api/orders/{oid}').json()['status'], 'cancelled')
+
     def test_return_inspection_restocks_only_accepted_goods_and_cannot_be_overwritten(self):
         oid, pid = self.paid_order()
         self.record(oid)

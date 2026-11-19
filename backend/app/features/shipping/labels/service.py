@@ -1,9 +1,11 @@
+"""面单申请分为任务持久化、平台调用、结果登记三步；不确定结果保留任务等待人工核实。"""
 from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.db.transactions import retry_deadlocks
 from app.features.operations.common import add_event, digest, wire
 from app.features.orders.models import OrderModel, OrderStatus
 from app.features.shipping.fulfillment.service import save_shipment
@@ -29,24 +31,25 @@ def finish_task(db, task, result, actor):
               key=f"label-issued:{task.id}", details={"task_id": task.id, "package_no": task.package_no, "tracking_number": task.tracking_number})
 
 
-async def create_label(db, order_id, package_no, payload, actor, settings=None):
-    """取号流程：校验并保存任务 → 请求平台 → 登记返回结果；同键重试不会再次取号。"""
+@retry_deadlocks
+def prepare_label(db, order_id, package_no, payload, actor, settings):
+    """只校验并持久化任务；本阶段可整笔重试，外部取号必须在它提交之后执行。"""
     order = lock_order(db, order_id)
     hashed = digest({"order_id": order_id, "package_no": package_no, **payload.model_dump(exclude={"idempotency_key"})})
-    previous = db.scalar(select(LabelTask).where(LabelTask.idempotency_key == payload.idempotency_key))
+    previous = db.scalar(select(LabelTask).where(LabelTask.idempotency_key == payload.idempotency_key)
+                         .with_for_update().execution_options(populate_existing=True))
     if previous:
         if previous.request_hash != hashed:
             raise HTTPException(409, "同一面单提交键不能用于不同内容")
-        return wire(previous)
+        return previous, order, None
     assert_no_label_pending(db, order_id)
-    first, rows = parcel_rows(db, order_id)
+    first, rows = parcel_rows(db, order_id, current=True)
     if order.status != OrderStatus.PAID_PENDING_SHIPMENT or payload.expected_revision != (first.revision if first else 0):
         raise HTTPException(409, "订单状态或包裹版本已变化，请刷新后核对")
     if package_no in {no for no, _ in rows}:
         raise HTTPException(409, "该包裹已有运单，请直接使用原面单；不能重复取号")
     if package_no > 1 and not first:
         raise HTTPException(409, "请先创建一号包裹")
-    settings = settings or LabelSettings.from_env()
     code = carrier_identity(payload.carrier_name)
     settings.account(code)  # 配置缺失不创建未决任务，也不调用平台。
     task = LabelTask(order_id=order_id, package_no=package_no, idempotency_key=payload.idempotency_key,
@@ -60,19 +63,25 @@ async def create_label(db, order_id, package_no, payload, actor, settings=None):
     except IntegrityError as error:
         db.rollback()
         raise HTTPException(409, "面单任务已存在，请刷新核对") from error
-    task_id = task.id
-    try:
-        result = await LabelProvider(settings).create(code, order, payload.weight, f"label-{task_id}-{digest(payload.idempotency_key)[:24]}")
-    except LabelProviderError as error:
-        # 请求超时时，平台可能已经取号成功。uncertain 的任务必须人工核实，不能盲目重新取号。
-        lock_order(db, order_id)
-        task = db.get(LabelTask, task_id, populate_existing=True)
-        if task.status == "requesting":
-            task.status, task.error = ("unknown" if error.uncertain else "failed"), str(error)
-            db.commit()
-        return wire(task)
+    return task, order, code
+
+
+@retry_deadlocks
+def record_label_failure(db, order_id, task_id, error):
+    """仅重试本地结果登记；平台调用已经结束，不在数据库死锁后重新取号。"""
     lock_order(db, order_id)
-    task = db.get(LabelTask, task_id, populate_existing=True)
+    task = db.get(LabelTask, task_id, with_for_update=True, populate_existing=True)
+    if task.status == "requesting":
+        task.status, task.error = ("unknown" if error.uncertain else "failed"), str(error)
+        db.commit()
+    return wire(task)
+
+
+@retry_deadlocks
+def record_label_result(db, order_id, task_id, result, actor):
+    """已取得的平台结果可重复登记；并发人工核实已经完成时保留其结论。"""
+    lock_order(db, order_id)
+    task = db.get(LabelTask, task_id, with_for_update=True, populate_existing=True)
     if task.status != "requesting":
         return wire(task)
     try:
@@ -81,18 +90,36 @@ async def create_label(db, order_id, package_no, payload, actor, settings=None):
     except (HTTPException, IntegrityError):
         db.rollback()
         lock_order(db, order_id)
-        task = db.get(LabelTask, task_id, populate_existing=True)
+        task = db.get(LabelTask, task_id, with_for_update=True, populate_existing=True)
+        if task.status != "requesting":
+            return wire(task)
         task.status, task.error = "unknown", "平台已返回取号结果，但本地登记冲突，请核实后补录"
         task.tracking_number, task.label_url = result["tracking_number"], result["label_url"]
-        task.provider_task_id = result["provider_task_id"]
+        task.provider_task_id = result.get("provider_task_id")
         db.commit()
     return wire(task)
 
 
+async def create_label(db, order_id, package_no, payload, actor, settings=None):
+    """取号流程：保存任务 → 请求平台 → 登记结果；数据库阶段各自重试，平台取号不重放。"""
+    settings = settings or LabelSettings.from_env()
+    task, order, code = prepare_label(db, order_id, package_no, payload, actor, settings)
+    if code is None:
+        return wire(task)
+    task_id = task.id
+    try:
+        result = await LabelProvider(settings).create(code, order, payload.weight, f"label-{task_id}-{digest(payload.idempotency_key)[:24]}")
+    except LabelProviderError as error:
+        # 请求超时时，平台可能已经取号成功。uncertain 的任务必须人工核实，不能盲目重新取号。
+        return record_label_failure(db, order_id, task_id, error)
+    return record_label_result(db, order_id, task_id, result, actor)
+
+
+@retry_deadlocks
 def resolve_label(db, order_id, task_id, payload, actor):
     """人工核实不确定的面单结果：补登记已取到的号码，或记录确认未取号的依据。"""
     order = lock_order(db, order_id)
-    task = db.get(LabelTask, task_id, populate_existing=True)
+    task = db.get(LabelTask, task_id, with_for_update=True, populate_existing=True)
     if task is None or task.order_id != order_id:
         raise HTTPException(404, "面单任务不存在")
     if task.status not in {"requesting", "unknown"}:

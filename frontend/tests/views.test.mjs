@@ -1320,6 +1320,38 @@ test('a late package response cannot fill an unmounted detail', async (t) => {
   assert.equal(state.data, null)
 })
 
+test('an older package refresh cannot overwrite a newer revision and freight draft', async (t) => {
+  const old = deferred()
+  let reads = 0
+  const { state } = await mountShippingFeature(t, 'ParcelPanel', {
+    fetchPackages: () => ++reads === 1 ? old.promise : Promise.resolve(packageFixture({ revision: 2 })),
+    request: async () => ({ configured: false }),
+  }, { order: shippingOrder(7) })
+  await state.load()
+  state.costs[1].cost = '8.50'
+  state.costs[1].source = '核对后的账单'
+  old.resolve(packageFixture({ revision: 1 }))
+  await settle()
+  assert.equal(state.data.revision, 2)
+  assert.equal(state.costs[1].cost, '8.50')
+  assert.equal(state.costs[1].source, '核对后的账单')
+})
+
+test('an older package refresh failure cannot replace the current successful result', async (t) => {
+  const old = deferred()
+  let reads = 0
+  const { state } = await mountShippingFeature(t, 'ParcelPanel', {
+    fetchPackages: () => ++reads === 1 ? old.promise : Promise.resolve(packageFixture({ revision: 2 })),
+    request: async () => ({ configured: false }),
+  }, { order: shippingOrder(7) })
+  state.error = '之前的读取失败'
+  await state.load()
+  old.reject(new Error('过期请求的错误'))
+  await settle()
+  assert.equal(state.data.revision, 2)
+  assert.equal(state.error, '')
+})
+
 test('batch preview rejects changed manifest revisions before dispatch', async (t) => {
   let calls = 0
   const { state } = await mountShippingFeature(t, 'BulkShippingPanel', {

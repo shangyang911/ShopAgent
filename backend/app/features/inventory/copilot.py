@@ -80,9 +80,11 @@ def shipping_analysis(db):
         if 'failed' in statuses:
             reasons.append('最近面单申请失败，需核对或使用纸质运单')
         paid = facts.get(order.id)
-        hours = round((now-paid.paid_at).total_seconds()/3600, 1) if paid and paid.paid_at else None
+        elapsed = now - paid.paid_at if paid and paid.paid_at else None
+        hours = round(elapsed.total_seconds()/3600, 1) if elapsed is not None else None
+        # 超时按实际满 24 小时判断；展示取整不能让临界订单提前进入超时队列。
         items.append({'order_id': order.id, 'order_number': order.order_number, 'waiting_hours': hours,
-                      'overdue': hours is not None and hours >= 24, 'reasons': reasons or ['已登记运单，待仓库核实实物交接'],
+                      'overdue': elapsed is not None and elapsed >= timedelta(hours=24), 'reasons': reasons or ['已登记运单，待仓库核实实物交接'],
                       'href': f'/shipping?order_id={order.id}'})
     return {'generated_at': now.isoformat()+'Z', 'items': items, 'truncated': len(orders)>500,
             'notice': '仅分析当前已付款待发货队列；原因标签可重叠，不等同于真实延误根因。无完整历史队列快照，不能据此断言今日积压增长原因。'}

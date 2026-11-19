@@ -13,7 +13,6 @@ from app.features.orders.crud import OrderCRUD
 from app.features.orders.models import OrderModel, OrderStatus
 from app.features.orders.schemas import ORDER_STATUS_TRANSITIONS
 from app.features.orders.filtering import OrderFilterStatus
-from app.features.products.models import ProductModel
 from .models import AgentAction, AgentConversation, AgentConversationArchive, AgentTicket
 from .provider import AgentError, BailianProvider
 from . import telemetry

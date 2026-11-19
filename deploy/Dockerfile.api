@@ -1,0 +1,22 @@
+FROM python:3.13.18-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS base
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY backend/requirements.lock ./requirements.lock
+RUN python -m pip install --index-url https://mirrors.aliyun.com/pypi/simple/ -r requirements.lock \
+    && useradd --uid 10001 --create-home appuser
+COPY --chown=10001:10001 backend/app ./app
+RUN mkdir -p uploads/products && chown -R 10001:10001 uploads
+
+FROM base AS test
+COPY --chown=10001:10001 backend/tests ./tests
+COPY --chown=10001:10001 backend/scripts ./scripts
+COPY --chown=10001:10001 backend/evals ./evals
+USER 10001:10001
+CMD ["python", "-m", "unittest", "discover", "-s", "tests", "-v"]
+
+FROM base AS runtime
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+USER 10001:10001
+EXPOSE 8001
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers", "--forwarded-allow-ips", "*"]

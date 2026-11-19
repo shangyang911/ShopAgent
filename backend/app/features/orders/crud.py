@@ -49,6 +49,7 @@ class OrderCRUD:
         if address is None or address.customer_id != customer.id:
             return None, "Address does not belong to customer"
         products = {}
+        # 多商品统一升序加锁；重复选择同一 SKU 合并成一行，不同 SKU 保持独立。
         for product_id in sorted({item.product_id for item in payload.items}):
             product = self.db.scalar(select(ProductModel).where(ProductModel.id == product_id).with_for_update().execution_options(populate_existing=True))
             if product is None:
@@ -73,6 +74,7 @@ class OrderCRUD:
         if subtotal + payload.shipping_fee > Decimal('9999999999.99'):
             return None, 'Order total exceeds the supported amount'
         now = utcnow()
+        # 收货信息和成交价格随订单冻结；后续修改客户地址、商品价格不会改写历史订单。
         order = OrderModel(order_number=f"ORD-{uuid4().hex[:16].upper()}", customer_id=customer.id, address_id=address.id,
                            status=OrderStatus.PENDING_PAYMENT, subtotal=subtotal, shipping_fee=payload.shipping_fee,
                            total=subtotal + payload.shipping_fee, note=payload.note,
@@ -136,9 +138,9 @@ class OrderCRUD:
             return order, error.detail
         shipment = None
         if next_status == OrderStatus.IN_DELIVERY:
-            # 未结售后先暂停交接，避免退款与仓库出库同时发生。
+            # 未结售后先暂停交接；当前读可看见本请求早先快照之后新建的售后。
             from app.features.aftersales.models import AfterSale
-            if self.db.scalar(select(AfterSale.id).where(AfterSale.order_id == order_id, AfterSale.status == "open")):
+            if self.db.scalar(select(AfterSale.id).where(AfterSale.order_id == order_id, AfterSale.status == "open").with_for_update()):
                 return order, "订单有处理中售后，请先完成或撤销售后再交接"
             from app.features.shipping.fulfillment.models import ShipmentModel
             shipment = self.db.scalar(select(ShipmentModel).where(ShipmentModel.order_id == order_id).with_for_update().execution_options(populate_existing=True))
@@ -199,6 +201,8 @@ class OrderCRUD:
         elif next_status == OrderStatus.COMPLETED:
             facts.completed_at = now
         elif next_status == OrderStatus.CANCELLED:
+            # 已付款未发货也允许直接取消并释放预留；退款凭据由售后另行登记。
+            # 取消履约本身不能生成退款事实，也不能删除原收款记录。
             facts.cancelled_at = now
         order.status = next_status
         order.updated_at = now

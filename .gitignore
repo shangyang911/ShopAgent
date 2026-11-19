@@ -21,3 +21,7 @@
 *.key
 *.p12
 *.pfx
+
+# Python operations/test bytecode outside backend/.
+__pycache__/
+*.py[cod]

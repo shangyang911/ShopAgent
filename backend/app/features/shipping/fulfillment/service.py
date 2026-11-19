@@ -4,6 +4,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+from app.db.transactions import retry_deadlocks
 from app.features.operations.common import add_event
 from app.features.operations.models import OrderFacts, utcnow
 from app.features.orders.models import OrderModel, OrderStatus
@@ -38,6 +39,7 @@ def workbench(db, *, status=None, keyword="", page=1, page_size=20):
             "counts": {getattr(state, "value", state): count for state, count in counts.items()}}
 
 
+@retry_deadlocks
 def save_shipment(db, order_id, payload, actor, *, label_task=None, commit=True):
     """登记主包裹运单，不执行出库；面单服务可用 commit=False 将登记并入它自己的事务。"""
     # 先读取可能过期的 ORM 账号属性，避免在新运单字段尚未填完时触发 autoflush。
@@ -51,8 +53,9 @@ def save_shipment(db, order_id, payload, actor, *, label_task=None, commit=True)
     from app.features.shipping.parcels.service import assert_no_label_pending, claim_waybill
     from app.features.shipping.labels.models import LabelTask
     assert_no_label_pending(db, order_id, label_task)
-    # 订单行锁已串行化本单修改；不存在的运单不能加间隙锁，否则两单同时建运单可能死锁。
-    row = db.scalar(select(ShipmentModel).where(ShipmentModel.order_id == order_id).execution_options(populate_existing=True))
+    # 当前读取得最新记录并刷新 ORM；普通查询仍可能沿用原事务快照。
+    # 缺失行的间隙锁死锁由外层重试整笔数据库事务。
+    row = db.get(ShipmentModel, order_id, with_for_update=True, populate_existing=True)
     values = {key: getattr(payload, key) for key in ("carrier_name", "tracking_number", "remark")}
     if row and all(getattr(row, key) == value for key, value in values.items()):
         return row  # 保存成功但响应丢失时，原内容重试不会追加第二条事件。
@@ -60,7 +63,7 @@ def save_shipment(db, order_id, payload, actor, *, label_task=None, commit=True)
         raise HTTPException(409, "已交接或历史补录的快递信息只读，不能直接覆盖")
     if payload.expected_revision != (row.revision if row else 0):
         raise HTTPException(409, "快递信息已被其他操作更新，请刷新后核对")
-    if db.scalar(select(LabelTask.id).where(LabelTask.order_id == order_id, LabelTask.package_no == 1, LabelTask.status == "issued")):
+    if db.scalar(select(LabelTask.id).where(LabelTask.order_id == order_id, LabelTask.package_no == 1, LabelTask.status == "issued").with_for_update()):
         raise HTTPException(409, "已取得电子面单的运单不能直接覆盖")
     historical = order.status in (OrderStatus.IN_DELIVERY, OrderStatus.COMPLETED)
     if historical and not payload.remark:

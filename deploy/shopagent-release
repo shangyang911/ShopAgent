@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Only allow an immutable commit argument through the CI sudo boundary."""
+import os
+import re
+import sys
+
+if len(sys.argv) != 2 or not re.fullmatch(r'[a-f0-9]{40}', sys.argv[1]):
+    raise SystemExit('Expected exactly one full lowercase Git commit SHA')
+os.execv('/usr/bin/python3', ['/usr/bin/python3', '/opt/shopagent/ops/release.py',
+                            'run', '--revision', sys.argv[1]])

@@ -1,5 +1,7 @@
 """地图配置、配送路线和人工完成接口。"""
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -21,9 +23,13 @@ def map_settings(db: Session = Depends(get_db)) -> ShippingMapSettings:
 
 
 @router.get("/orders", response_model=list[DeliveryOrder])
-async def delivery_orders(db: Session = Depends(get_db)) -> list[DeliveryOrder]:
-    """配送工作台 / 列表：读取待发货与配送中订单并尝试解析地址坐标。"""
-    return await ShippingService(db).list_delivery_orders_with_coordinates()
+async def delivery_orders(
+    db: Annotated[Session, Depends(get_db)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> list[DeliveryOrder]:
+    """配送列表：分页读取待发货与配送中订单，在整页时限内尝试解析坐标。"""
+    return await ShippingService(db).list_delivery_orders_with_coordinates(page=page, page_size=page_size)
 
 
 @router.get("/orders/{order_id}/route", response_model=DeliveryRoute)

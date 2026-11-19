@@ -251,6 +251,29 @@ class ProductSKUMySQLTests(OrderFixtures, unittest.TestCase):
     setUpClass = classmethod(mysql_fixtures.MySQLConcurrencyTests.setUpClass.__func__)
     drop_test_database = classmethod(mysql_fixtures.MySQLConcurrencyTests.drop_test_database.__func__)
 
+    def test_price_update_uses_current_variant_prices_after_an_earlier_snapshot(self):
+        from app.features.products.details.service import save_sku
+        from app.features.products.details.schemas import SKUWrite, SKUUpdate
+        _, pid, _ = self.seed_order()
+        with Session(self.engine) as db:
+            result = save_sku(db, pid, SKUWrite(code='PRICE-'+uuid4().hex, color='Blue', size='M', price='5.00'))
+            original, variant = result['skus']
+
+        def change(sku, price):
+            return SKUUpdate(**{k: sku[k] for k in ('code', 'color', 'size', 'active')},
+                             price=price, expected_revision=sku['revision'])
+
+        with Session(self.engine) as stale:
+            # 模拟鉴权等普通查询已建立快照，另一请求随后完成规格调价。
+            self.assertEqual(stale.scalar(select(ProductSKU.price).where(ProductSKU.id == variant['id'])), Decimal('5'))
+            with Session(self.engine) as fresh:
+                save_sku(fresh, pid, change(variant, '20.00'), variant['id'])
+            save_sku(stale, pid, change(original, '30.00'), original['id'])
+
+        with Session(self.engine) as db:
+            self.assertEqual(db.get(ProductModel, pid).price, Decimal('20.00'))
+            self.assertEqual(db.scalar(select(func.min(ProductSKU.price)).where(ProductSKU.product_id == pid)), Decimal('20.00'))
+
     def test_concurrent_buyers_cannot_oversell_the_last_variant(self):
         from app.features.products.details.service import save_sku, transfer_stock
         from app.features.products.details.schemas import SKUWrite, StockTransfer

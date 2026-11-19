@@ -10,7 +10,7 @@ Group=shopagent-ci
 WorkingDirectory=/home/shopagent-ci
 Environment=HOME=/home/shopagent-ci
 UMask=0077
-ExecStart=/usr/bin/python3 /opt/shopagent/ops/gitee_runner.py
+ExecStart=/usr/bin/python3 /usr/local/libexec/shopagent/gitee_runner.py
 Restart=always
 RestartSec=10s
 TimeoutStopSec=30s

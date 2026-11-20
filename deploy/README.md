@@ -4,7 +4,7 @@ Public URL: https://123.57.2.244/ (voice: `/agent`). Production secrets are sepa
 
 ## CI/CD
 
-GitHub Actions workflow configuration and repository secrets were removed at the owner's request for manual setup practice. To enable automatic deployment, recreate `.github/workflows/main.yml` and the required Actions secrets using the deployment manual. The installed release controller authenticates the restricted shopagent-deploy account and accepts a full commit SHA through the root-owned release entry. The server fetches GitHub using a repository-only read key.
+GitHub Actions deploys pushes to master and supports manual workflow dispatch on master. Production deployments are serialized. The workflow uses the SSH_PRIVATE_KEY repository secret with the restricted shopagent-deploy account and pins the ECS address and SSH host key in `.github/workflows/main.yml`. Its root-owned release entry accepts a full commit SHA, and the server fetches GitHub using a repository-only read key.
 
 The root-owned release tool fetches that exact master revision with a repository-only read key, serializes executions, builds commit-tagged images, runs frontend tests/architecture/type checks/build and backend tests with a disposable MySQL. It does not mount production secrets or volumes into CI test containers. Existing Python dependencies are locked from the validated Linux runtime; Docker base images are pinned by digest.
 

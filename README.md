@@ -4,7 +4,7 @@ ShopAgent 面向单店管理员，将商品、客户、订单、库存、售后�
 
 本文件是项目整体大纲与开发入口。功能说明以当前仓库源码为准，详细接口、配置和业务规则见各模块文档。
 
-重新配置 GitHub Actions 工作流与仓库密钥后，可启用 `master` 分支的自动测试、备份和部署。服务器以 `/opt/shopagent/releases/<提交 SHA>` 保存版本，`/opt/shopagent/current` 指向当前线上版本，详细操作见 [部署说明](deploy/README.md)。
+推送到 GitHub 的 `master` 分支会自动触发测试、备份和部署。服务器以 `/opt/shopagent/releases/<提交 SHA>` 保存版本，`/opt/shopagent/current` 指向当前线上版本，详细操作见 [部署说明](deploy/README.md)。
 
 ## 目录
 
